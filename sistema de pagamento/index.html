@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pagamento</title>
+    <script src="https://js.stripe.com/v3/"></script>
+    <link rel="stylesheet" href="styles.css">
+
+</head>
+<body>
+
+    <h2>Pagamento com Cartão</h2>
+    <form id="payment-form">
+        <div id="card-element"></div>
+        <button type="submit">Pagar com Cartão</button>
+    </form>
+
+    <h2>Pagamento com Pix</h2>
+    <button id="pix-button">Gerar QR Code Pix</button>
+    <div id="pix-container" style="display:none;">
+        <h3>Escaneie o QR Code para pagar:</h3>
+        <img id="pix-qrcode" src="" alt="QR Code Pix">
+    </div>
+
+    <script>
+        const stripe = Stripe("SUA_CHAVE_PUBLICA_STRIPE");
+        const elements = stripe.elements();
+        const card = elements.create("card");
+        card.mount("#card-element");
+
+        document.getElementById("payment-form").addEventListener("submit", async (e) => {
+            e.preventDefault();
+
+            const { token, error } = await stripe.createToken(card);
+            if (error) {
+                alert(error.message);
+                return;
+            }
+
+            const response = await fetch("http://localhost:3000/pagar-cartao", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ amount: 100, token: token.id })
+            });
+
+            const result = await response.json();
+            if (result.success) {
+                alert("Pagamento realizado com sucesso!");
+            } else {
+                alert("Erro no pagamento: " + result.error);
+            }
+        });
+
+        document.getElementById("pix-button").addEventListener("click", async () => {
+            const response = await fetch("http://localhost:3000/pagar-pix", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ amount: 100, email: "email@exemplo.com" })
+            });
+
+            const data = await response.json();
+            if (data.success) {
+                document.getElementById("pix-container").style.display = "block";
+                document.getElementById("pix-qrcode").src = `data:image/png;base64,${data.qr_code_base64}`;
+            } else {
+                alert("Erro ao gerar QR Code Pix.");
+            }
+        });
+    </script>
+
+</body>
+</html>
